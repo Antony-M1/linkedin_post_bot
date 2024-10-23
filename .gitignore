@@ -3,3 +3,5 @@ venv
 *.db
 .vscode
 chromedriver*
+__pycache__
+temp
