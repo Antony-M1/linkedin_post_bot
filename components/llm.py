@@ -40,6 +40,8 @@ def create_ai_suggestion(generator=None):
             note if a user ask abusive or unlawful content restrict them, or say `this content against my policies can't provide information`
             take the policy content only for validation don't generate the content to user. if user ask unappropriate content. directly restrict
             them with short responses.
+            
+            Note: Provide the blog post content with the respective hash tags and emoji
 
             # User Queries
             {user_query}
