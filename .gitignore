@@ -5,3 +5,4 @@ venv
 chromedriver*
 __pycache__
 temp
+*.log
