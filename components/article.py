@@ -12,12 +12,14 @@ def create_article_form(model, session):
         title = st.text_input('Article Title', '')
         content = st.text_area('Article Content', '')
         # is_posted = st.selectbox('Is Posted?', [0, 1])
+        is_personal = st.checkbox('Is Personal')
+        is_business = st.checkbox('Is Business')
         submit_button = st.form_submit_button(label='Submit Article')
         if submit_button:
             if title.strip() == '' or content.strip() == '':
                 st.error('Both Title and Content fields are required.')
             if title and content:
-                new_article = model(title=title, content=content)
+                new_article = model(title=title, content=content, is_personal=is_personal, is_business=is_business)
                 session.add(new_article)
                 session.commit()
                 st.success('Article added successfully!')
@@ -53,6 +55,10 @@ def create_article_list(model, session, generator: DeltaGenerator):
         "Title": [article.title for article in articles],
         "Content": [article.content for article in articles],
         "Is Posted": [bool(article.is_posted) for article in articles],
+        "Is Personal": [bool(article.is_personal) for article in articles],
+        "Is Business": [bool(article.is_business) for article in articles],
+        "Is Rejected": [bool(article.is_rejected) for article in articles],
+        "Reason": [article.reason for article in articles]
     }
     df = pd.DataFrame(articles_dict)
     df.set_index('Article ID', inplace=True)
