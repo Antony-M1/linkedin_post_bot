@@ -13,6 +13,10 @@ class Article(Base):
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     is_posted = Column(Integer, default=0)
+    is_personal = Column(Boolean, default=0)
+    is_business = Column(Boolean, default=0)
+    is_rejected = Column(Boolean, default=0)
+    reason = Column(Text, nullable=True)
 
 
 def create_engine_session():
