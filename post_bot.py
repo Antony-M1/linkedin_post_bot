@@ -219,7 +219,10 @@ class PostBot:
                 editor_div.clear()
                 for content in blog_content:
                     time.sleep(round(random.uniform(0.6, 2.0), 1))
-                    self.driver.execute_script("arguments[0].innerHTML += '<p>' + arguments[1] + '</p>';", editor_div, content) # noqa
+                    for letter in content:
+                        time.sleep(round(random.uniform(0.1, 0.5), 1))
+                        self.driver.execute_script("arguments[0].innerHTML = '<p>' + arguments[1] + '</p>';", editor_div, letter) # noqa
+                    self.driver.execute_script("arguments[0].innerHTML += '<p>' + arguments[1] + '</p>';", editor_div, "") # noqa
                 time.sleep(1)
 
                 post_button = WebDriverWait(self.driver, 5).until(
