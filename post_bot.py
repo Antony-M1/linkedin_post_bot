@@ -10,6 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.common import exceptions as sc_ex
+from selenium.webdriver.chrome.options import Options
 import time
 import os
 import random
@@ -43,9 +44,11 @@ class PostBot:
         self.business_url = "https://www.linkedin.com/company/{0}/admin/page-posts/published/".format(company_id)
 
         # Driver
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
         self.driver_exe_path = os.path.join(os.getcwd(), os.getenv('DRIVER_EXE_PATH', 'chromedriver'))
         self.service = Service(executable_path=self.driver_exe_path)
-        self.driver = webdriver.Chrome(service=self.service)
+        self.driver = webdriver.Chrome(service=self.service, options=chrome_options)
 
         # Database
         Session = create_engine_session()
