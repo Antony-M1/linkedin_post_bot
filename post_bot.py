@@ -41,6 +41,7 @@ class PostBot:
         self.username = username
         self.password = password
         self.linkedin_login_url = linkedin_login_url
+        self.business_url = "https://www.linkedin.com/company/{0}/admin/page-posts/published/".format(company_id)
 
         # Driver
         self.driver_exe_path = os.path.join(os.getcwd(), os.getenv('DRIVER_EXE_PATH', 'chromedriver'))
@@ -94,6 +95,9 @@ class PostBot:
         if is_personal:
             self.post_articles_for_personal_account()
 
+        if is_business:
+            self.post_articles_for_business_account()
+
     def get_llm_response(self, content: str):
         try:
             model_name = os.getenv("GEMINI_MODEL_NAME")
@@ -127,6 +131,7 @@ class PostBot:
         try:
             return json.loads(response.replace("```json\n", "").replace("\n```", ""))
         except Exception as e:
+            logger.error(traceback.format_exc())
             print(e)
             count += 1
             if count == 5:
@@ -137,23 +142,19 @@ class PostBot:
         """
         Post the articles to the personal account
         """
-        try:
-            # WebDriverWait(self.driver, 5).until(
-            #     EC.presence_of_element_located((By.ID, "ember32"))
-            # )
-            buttons_list = self.driver.find_element(By.TAG_NAME, "button")
-            is_btn_found = False
-            for button in buttons_list:
-                if "Start a post, try writing with AI" in button.text:
-                    is_btn_found = True
-                    share_post_button = button
-                    break
-            if not is_btn_found:
-                raise sc_ex.TimeoutException("Start a post, try writing with AI -- Button is missing")
-        except sc_ex.TimeoutException:
-            logger.error(traceback.format_exc())
-            # logger.error(str(ex))
-            return None
+        def get_share_post_button():
+            try:
+                buttons_list = self.driver.find_elements(By.TAG_NAME, "button")
+                is_btn_found = False
+                for button in buttons_list:
+                    if button.text in ["Start a post, try writing with AI", "Start a post"]:
+                        is_btn_found = True
+                        return button
+                if not is_btn_found:
+                    raise sc_ex.TimeoutException("Start a post, try writing with AI -- Button is missing")
+            except sc_ex.TimeoutException:
+                logger.error(traceback.format_exc())
+                return
 
         article_list = self.session.query(Article).filter(
                             Article.is_personal == True
@@ -174,9 +175,18 @@ class PostBot:
             if not article.is_rejected:
                 # ember32_btn = self.driver.find_element(By.ID, "ember32")
                 # ember32_btn.click()
+                share_post_button = get_share_post_button()
+                if not share_post_button:
+                    continue
                 self.driver.execute_script("arguments[0].click();", share_post_button)
                 blog_content = f"""{article.title}\n{article.content}""".split("\n")
-                editor_div = self.driver.find_element(By.CSS_SELECTOR, '.ql-editor')
+                time.sleep(round(random.uniform(2, 3.0), 1))
+                try:
+                    editor_div = self.driver.find_element(By.CSS_SELECTOR, '.ql-editor')
+                except sc_ex.NoSuchElementException:
+                    logger.error(traceback.format_exc())
+                    editor_div = self.driver.find_element(By.CLASS_NAME, 'ql-editor')
+                editor_div.clear()
                 editor_div_p = editor_div.find_element(By.TAG_NAME, 'p')
                 # self.type_like_human(editor_div_p, blog_content, start=0.1, end=0.3)
                 for content in blog_content:
@@ -193,5 +203,76 @@ class PostBot:
                 self.driver.execute_script("arguments[0].click();", post_button)
                 time.sleep(3)
 
-                self.session.add(article)
-                self.session.commit()
+            self.session.add(article)
+            self.session.commit()
+
+    def post_articles_for_business_account(self):
+        def get_share_post_button():
+            try:
+                buttons_list = self.driver.find_elements(By.TAG_NAME, "button")
+                is_btn_found = False
+                for button in buttons_list:
+                    if button.text in ["Start a post, try writing with AI", "Start a post"]:
+                        is_btn_found = True
+                        return button
+                if not is_btn_found:
+                    raise sc_ex.TimeoutException("Start a post-- Button is missing")
+            except sc_ex.TimeoutException:
+                logger.error(traceback.format_exc())
+                return
+        time.sleep(round(random.uniform(3, 10), 1))
+        self.driver.get(self.business_url)
+        time.sleep(round(random.uniform(3, 10), 1))
+        article_list = self.session.query(Article).filter(
+                            Article.is_business == True # noqa
+                        ).filter(
+                            Article.is_rejected == False # noqa
+                        ).filter(
+                            Article.is_posted == False # noqa
+                        ).all()
+        for article in article_list:
+            llm_response = self.validate_article_with_llm(article)
+            if llm_response.get('is_rejected'):
+                article.is_rejected = 1
+                article.reason = llm_response.get('reason')
+            else:
+                article.is_posted = 1
+
+            if not article.is_rejected:
+                share_post_button = get_share_post_button()
+                if not share_post_button:
+                    logger.error("Share button is not there")
+                    return
+                self.driver.execute_script("arguments[0].click();", share_post_button)
+                blog_content = f"""{article.title}\n{article.content}""".split("\n")
+                time.sleep(round(random.uniform(2, 3.0), 1))
+                try:
+                    editor_div = self.driver.find_element(By.CSS_SELECTOR, '.ql-editor')
+                except sc_ex.NoSuchElementException:
+                    logger.error(traceback.format_exc())
+                    editor_div = self.driver.find_element(By.CLASS_NAME, 'ql-editor')
+                editor_div.clear()
+                for content in blog_content:
+                    time.sleep(round(random.uniform(0.6, 2.0), 1))
+                    self.driver.execute_script("arguments[0].innerHTML += '<p>' + arguments[1] + '</p>';", editor_div, content)
+                time.sleep(1)
+
+                post_button = WebDriverWait(self.driver, 5).until(
+                                        EC.presence_of_element_located((By.XPATH, "//button[span[text()='Post']]"))
+                                    )
+                # post_button.click()
+                self.driver.execute_script("arguments[0].click();", post_button)
+                time.sleep(3)
+                try:
+                    buttons = self.driver.find_elements(By.TAG_NAME, 'button')
+                    for button in buttons:
+                        if button.text == 'Not now':
+                            self.driver.execute_script("arguments[0].click();", button)
+                            time.sleep(3)
+                            break
+                except Exception as ex: # noqa
+                    logger.critical(traceback.format_exc())
+                    pass
+
+            self.session.add(article)
+            self.session.commit()
