@@ -16,6 +16,7 @@ import random
 import requests
 import json
 import traceback
+import pickle
 from bs4 import BeautifulSoup
 import google.generativeai as genai
 from models import Article, create_engine_session
@@ -23,8 +24,6 @@ from logger_config import get_logger
 from dotenv import load_dotenv
 load_dotenv()
 
-# logging.basicConfig(filemode="logs/post_bot.log", level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-# logger = logging.getLogger('post_bot')
 
 logger = get_logger("post_bot", "post_bot.log")
 
@@ -92,6 +91,12 @@ class PostBot:
 
         time.sleep(round(random.uniform(2, 5), 1))
 
+        with open("cookies.pkl", "wb") as file:
+            pickle.dump(self.driver.get_cookies(), file)
+
+        with open("cookies.json", "w") as file:
+            json.dump(self.driver.get_cookies(), file)
+
         if is_personal:
             self.post_articles_for_personal_account()
 
@@ -157,12 +162,12 @@ class PostBot:
                 return
 
         article_list = self.session.query(Article).filter(
-                            Article.is_personal == True
-                        ).filter(
-                            Article.is_rejected == False
-                        ).filter(
-                            Article.is_posted == False
-                        ).all()
+                            Article.is_personal == True # noqa
+                            ).filter(
+                                Article.is_rejected == False # noqa
+                            ).filter(
+                                Article.is_posted == False # noqa
+                            ).all()
 
         for article in article_list:
             llm_response = self.validate_article_with_llm(article)
@@ -187,19 +192,14 @@ class PostBot:
                     logger.error(traceback.format_exc())
                     editor_div = self.driver.find_element(By.CLASS_NAME, 'ql-editor')
                 editor_div.clear()
-                editor_div_p = editor_div.find_element(By.TAG_NAME, 'p')
-                # self.type_like_human(editor_div_p, blog_content, start=0.1, end=0.3)
                 for content in blog_content:
                     time.sleep(round(random.uniform(0.6, 2.0), 1))
-                    self.driver.execute_script("arguments[0].innerHTML += '<p>' + arguments[1] + '</p>';", editor_div, content)
+                    self.driver.execute_script("arguments[0].innerHTML += '<p>' + arguments[1] + '</p>';", editor_div, content) # noqa
                 time.sleep(1)
 
-                # ember576_btn = self.driver.find_element(By.ID, "ember576")
-                # ember576_btn.click()
                 post_button = WebDriverWait(self.driver, 5).until(
                                     EC.presence_of_element_located((By.XPATH, "//button[span[text()='Post']]"))
                                 )
-                # post_button.click()
                 self.driver.execute_script("arguments[0].click();", post_button)
                 time.sleep(3)
 
@@ -254,7 +254,7 @@ class PostBot:
                 editor_div.clear()
                 for content in blog_content:
                     time.sleep(round(random.uniform(0.6, 2.0), 1))
-                    self.driver.execute_script("arguments[0].innerHTML += '<p>' + arguments[1] + '</p>';", editor_div, content)
+                    self.driver.execute_script("arguments[0].innerHTML += '<p>' + arguments[1] + '</p>';", editor_div, content) # noqa
                 time.sleep(1)
 
                 post_button = WebDriverWait(self.driver, 5).until(
