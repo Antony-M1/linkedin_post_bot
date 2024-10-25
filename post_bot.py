@@ -233,6 +233,7 @@ class PostBot:
 
             self.session.add(article)
             self.session.commit()
+            time.sleep(60)
 
     def post_articles_for_business_account(self):
         def get_share_post_button():
