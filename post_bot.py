@@ -16,7 +16,6 @@ import random
 import requests
 import json
 import traceback
-import pickle
 from bs4 import BeautifulSoup
 import google.generativeai as genai
 from models import Article, create_engine_session
@@ -41,7 +40,7 @@ class PostBot:
         self.password = password
         self.linkedin_login_url = linkedin_login_url
         self.business_url = "https://www.linkedin.com/company/{0}/admin/page-posts/published/".format(company_id)
-
+        self.linkedin_feed_url = "https://www.linkedin.com/feed/"
         # Driver
         self.driver_exe_path = os.path.join(os.getcwd(), os.getenv('DRIVER_EXE_PATH', 'chromedriver'))
         self.service = Service(executable_path=self.driver_exe_path)
@@ -68,34 +67,60 @@ class PostBot:
         except sc_ex.NoSuchWindowException as ex:
             logger.exception("type_like_human " + str(ex))
 
+    def get_share_post_button(self):
+        try:
+            buttons_list = self.driver.find_elements(By.TAG_NAME, "button")
+            is_btn_found = False
+            for button in buttons_list:
+                if button.text in ["Start a post, try writing with AI", "Start a post"]:
+                    is_btn_found = True
+                    return button
+            if not is_btn_found:
+                raise sc_ex.TimeoutException("Start a post, try writing with AI -- Button is missing")
+        except sc_ex.TimeoutException:
+            logger.error(traceback.format_exc())
+            return
+
     def login(self, is_personal: bool = True, is_business: bool = True):
         """
         Login the linkedin site
         """
+        share_post_btn = None
         self.driver.get(self.linkedin_login_url)
-        self.driver.maximize_window()
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located((By.ID, "username"))
-        )
-        username_input = self.driver.find_element(By.ID, "username")
-        self.type_like_human(username_input, self.username)
-
-        password_input = self.driver.find_element(By.ID, "password")
-        self.type_like_human(password_input, self.password)
-
         time.sleep(round(random.uniform(0.6, 2.0), 1))
+        if os.path.exists("cookies.json"):
+            with open("cookies.json", "r") as file:
+                cookies = json.load(file)
+                for cookie in cookies:
+                    self.driver.add_cookie(cookie)
+                time.sleep(round(random.uniform(0.6, 2.0), 1))
+                self.driver.get(self.linkedin_feed_url)
+                time.sleep(3)
+                share_post_btn = self.get_share_post_button()
 
-        sign_in_button = self.driver.find_element(By.CSS_SELECTOR, ".btn__primary--large")
-        # sign_in_button.click()
-        self.driver.execute_script("arguments[0].click();", sign_in_button)
+        self.driver.maximize_window()
 
-        time.sleep(round(random.uniform(2, 5), 1))
+        if not share_post_btn:
 
-        with open("cookies.pkl", "wb") as file:
-            pickle.dump(self.driver.get_cookies(), file)
+            WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.ID, "username"))
+            )
+            username_input = self.driver.find_element(By.ID, "username")
+            self.type_like_human(username_input, self.username)
 
-        with open("cookies.json", "w") as file:
-            json.dump(self.driver.get_cookies(), file)
+            password_input = self.driver.find_element(By.ID, "password")
+            self.type_like_human(password_input, self.password)
+
+            time.sleep(round(random.uniform(0.6, 2.0), 1))
+
+            sign_in_button = self.driver.find_element(By.CSS_SELECTOR, ".btn__primary--large")
+            # sign_in_button.click()
+            self.driver.execute_script("arguments[0].click();", sign_in_button)
+
+            time.sleep(round(random.uniform(2, 5), 1))
+
+            with open("cookies.json", "w") as file:
+                json.dump(self.driver.get_cookies(), file)
 
         if is_personal:
             self.post_articles_for_personal_account()
