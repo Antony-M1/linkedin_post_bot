@@ -10,6 +10,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.common import exceptions as sc_ex
+from apscheduler.schedulers.background import BackgroundScheduler
+import pyfiglet
 import time
 import os
 import random
@@ -25,6 +27,7 @@ load_dotenv()
 
 
 logger = get_logger("post_bot", "post_bot.log")
+logger_schedule = get_logger("apscheduler", "schedule.log")
 
 
 class PostBot:
@@ -34,6 +37,7 @@ class PostBot:
                     username: str = os.getenv('LINKEDIN_USERNAME'),
                     password: str = os.getenv('LINKEDIN_PASSWORD'),
                     linkedin_login_url: str = os.getenv("LINKEDIN_LOGIN_URL", "https://www.linkedin.com/login"),
+                    post_interval: int = 60
                 ):
         self.company_id = company_id
         self.username = username
@@ -41,6 +45,7 @@ class PostBot:
         self.linkedin_login_url = linkedin_login_url
         self.business_url = "https://www.linkedin.com/company/{0}/admin/page-posts/published/".format(company_id)
         self.linkedin_feed_url = "https://www.linkedin.com/feed/"
+        self.post_interval = post_interval
         # Driver
         self.driver_exe_path = os.path.join(os.getcwd(), os.getenv('DRIVER_EXE_PATH', 'chromedriver'))
         self.service = Service(executable_path=self.driver_exe_path)
@@ -117,7 +122,7 @@ class PostBot:
             # sign_in_button.click()
             self.driver.execute_script("arguments[0].click();", sign_in_button)
 
-            time.sleep(round(random.uniform(2, 5), 1))
+            time.sleep(120)  # 2 minutes for otp
 
             with open("cookies.json", "w") as file:
                 json.dump(self.driver.get_cookies(), file)
@@ -193,7 +198,9 @@ class PostBot:
                             ).filter(
                                 Article.is_posted == False # noqa
                             ).all()
-
+        time.sleep(3)
+        self.driver.get(self.linkedin_feed_url)
+        time.sleep(3)
         for article in article_list:
             llm_response = self.validate_article_with_llm(article)
             if llm_response.get('is_rejected'):
@@ -230,7 +237,7 @@ class PostBot:
 
             self.session.add(article)
             self.session.commit()
-            time.sleep(60)
+            time.sleep(self.post_interval)
 
     def post_articles_for_business_account(self):
         def get_share_post_button():
@@ -247,7 +254,7 @@ class PostBot:
                 logger.error(traceback.format_exc())
                 return
         time.sleep(round(random.uniform(3, 10), 1))
-        self.driver.get(self.business_url)
+        self.driver.get(self.business_url)  # Load the business Page
         time.sleep(round(random.uniform(3, 10), 1))
         article_list = self.session.query(Article).filter(
                             Article.is_business == True # noqa
@@ -302,3 +309,60 @@ class PostBot:
 
             self.session.add(article)
             self.session.commit()
+            time.sleep(self.post_interval)
+
+
+def print_linkedin() -> dict:
+    text = pyfiglet.figlet_format("Post Bot", font="slant")
+    print(f"\033[1;34;40m{text}\033[0m")
+
+
+def schedule_post_bot():
+    """
+    Post Interval in seconds
+    """
+    post_interval = 1800
+    bot = PostBot(post_interval=post_interval)
+    bot.login()
+
+
+def start_script():
+    """
+    README
+    please configure the cron and scedule job details and time betwee the post
+
+    ## Example for a scedulre
+    - Daily at a specific time (e.g., 8:00 AM):
+    ```py
+    scheduler.add_job(scheduled_task, 'cron', hour=8, minute=0)
+    ```
+    - Every 15 minutes:
+    ```py
+    scheduler.add_job(scheduled_task, 'interval', minutes=15)
+    ```
+    - Once a week on Saturday at midnight:
+    ```py
+    scheduler.add_job(scheduled_task, 'cron', day_of_week='sat', hour=0, minute=0)
+    ```
+    """
+    try:
+        print_linkedin()
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(schedule_post_bot, 'interval', hours=2)
+        scheduler.start()
+        print()
+        print("Scheduler started...🚀🚀🚀")
+    except Exception:
+        logger_schedule.critical("start_script" + traceback.format_exc())
+
+    try:
+        while True:
+            time.sleep(1)
+    except (KeyboardInterrupt, SystemExit):
+        print("Script Stopped 🚫 · ⛔ · ✋🏻🛑⛔️ · ⛔ · ⚠️ · 🛑 · ✋")
+        logger_schedule.error("stop_script" + traceback.format_exc())
+        scheduler.shutdown()
+
+
+if __name__ == '__main__':
+    start_script()
