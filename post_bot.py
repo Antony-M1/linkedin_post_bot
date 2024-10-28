@@ -321,7 +321,7 @@ def schedule_post_bot():
     """
     Post Interval in seconds
     """
-    post_interval = 1800
+    post_interval = 300
     bot = PostBot(post_interval=post_interval)
     bot.login()
 
@@ -348,10 +348,11 @@ def start_script():
     try:
         print_linkedin()
         scheduler = BackgroundScheduler()
-        scheduler.add_job(schedule_post_bot, 'interval', hours=2)
+        scheduler.add_job(schedule_post_bot, 'interval', hours=1)
         scheduler.start()
         print()
         print("Scheduler started...🚀🚀🚀")
+        schedule_post_bot()
     except Exception:
         logger_schedule.critical("start_script" + traceback.format_exc())
 
