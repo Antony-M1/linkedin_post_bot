@@ -196,7 +196,7 @@ class PostBot:
                             ).filter(
                                 Article.is_rejected == False # noqa
                             ).filter(
-                                Article.is_posted == False # noqa
+                                Article.is_posted_personal == False # noqa
                             ).all()
         time.sleep(3)
         self.driver.get(self.linkedin_feed_url)
@@ -207,7 +207,7 @@ class PostBot:
                 article.is_rejected = 1
                 article.reason = llm_response.get('reason')
             else:
-                article.is_posted = 1
+                article.is_posted_personal = 1
 
             if not article.is_rejected:
                 # ember32_btn = self.driver.find_element(By.ID, "ember32")
@@ -261,7 +261,7 @@ class PostBot:
                         ).filter(
                             Article.is_rejected == False # noqa
                         ).filter(
-                            Article.is_posted == False # noqa
+                            Article.is_posted_business == False # noqa
                         ).all()
         for article in article_list:
             llm_response = self.validate_article_with_llm(article)
@@ -269,7 +269,7 @@ class PostBot:
                 article.is_rejected = 1
                 article.reason = llm_response.get('reason')
             else:
-                article.is_posted = 1
+                article.is_posted_business = 1
 
             if not article.is_rejected:
                 share_post_button = get_share_post_button()
