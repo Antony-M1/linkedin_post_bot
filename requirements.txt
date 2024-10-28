@@ -5,3 +5,4 @@ python-dotenv==1.0.1
 SQLAlchemy==2.0.36
 google-generativeai==0.8.3
 beautifulsoup4==4.12.3
+pyfiglet==1.0.2
