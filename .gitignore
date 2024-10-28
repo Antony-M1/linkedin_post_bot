@@ -6,3 +6,5 @@ chromedriver*
 __pycache__
 temp
 *.log
+cookies.json
+cookies.pkl
