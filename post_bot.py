@@ -311,6 +311,18 @@ class PostBot:
             self.session.commit()
             time.sleep(self.post_interval)
 
+    def refresh_cookies(self):
+        """
+        If cookies have an expiry time, retrieve fresh cookies periodically and store them securely.
+
+        even if cookies have a long expiry, it’s a good idea to save fresh cookies every iteration or hour.
+        This keeps the session valid and minimizes the risk of issues due to unexpected session changes.
+
+        Overrides the `cookies.json` file every time.
+        """
+        with open("cookies.json", "w") as file:
+            json.dump(self.driver.get_cookies(), file)
+
 
 def print_linkedin() -> dict:
     text = pyfiglet.figlet_format("Post Bot", font="slant")
