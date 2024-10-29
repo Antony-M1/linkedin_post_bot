@@ -11,6 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.common import exceptions as sc_ex
 from apscheduler.schedulers.background import BackgroundScheduler
+from selenium.webdriver.chrome.options import Options
 import pyfiglet
 import time
 import os
@@ -37,7 +38,8 @@ class PostBot:
                     username: str = os.getenv('LINKEDIN_USERNAME'),
                     password: str = os.getenv('LINKEDIN_PASSWORD'),
                     linkedin_login_url: str = os.getenv("LINKEDIN_LOGIN_URL", "https://www.linkedin.com/login"),
-                    post_interval: int = 60
+                    post_interval: int = 60,
+                    is_headless: bool = False
                 ):
         self.company_id = company_id
         self.username = username
@@ -46,10 +48,14 @@ class PostBot:
         self.business_url = "https://www.linkedin.com/company/{0}/admin/page-posts/published/".format(company_id)
         self.linkedin_feed_url = "https://www.linkedin.com/feed/"
         self.post_interval = post_interval
+        
         # Driver
+        options = Options()
+        if is_headless:
+            options.add_argument("--headless")
         self.driver_exe_path = os.path.join(os.getcwd(), os.getenv('DRIVER_EXE_PATH', 'chromedriver'))
         self.service = Service(executable_path=self.driver_exe_path)
-        self.driver = webdriver.Chrome(service=self.service)
+        self.driver = webdriver.Chrome(service=self.service, options=options)
 
         # Database
         Session = create_engine_session()
@@ -72,7 +78,8 @@ class PostBot:
         except sc_ex.NoSuchWindowException as ex:
             logger.exception("type_like_human " + str(ex))
 
-    def get_share_post_button(self):
+    def get_share_post_button(self, count: int = 0):
+        """Returns the share button"""
         try:
             buttons_list = self.driver.find_elements(By.TAG_NAME, "button")
             is_btn_found = False
@@ -85,6 +92,16 @@ class PostBot:
         except sc_ex.TimeoutException:
             logger.error(traceback.format_exc())
             return
+        except sc_ex.ElementClickInterceptedException:
+            logger.error(traceback.format_exc())
+            self.close_pop_up()
+            return self.get_share_post_button()
+        except Exception:
+            if count == 4:
+                return
+            self.close_pop_up()
+            count += 1
+            return self.get_share_post_button(count=count)
 
     def login(self, is_personal: bool = True, is_business: bool = True):
         """
@@ -122,10 +139,9 @@ class PostBot:
             # sign_in_button.click()
             self.driver.execute_script("arguments[0].click();", sign_in_button)
 
-            time.sleep(120)  # 2 minutes for otp
+            time.sleep(60)  # 1 minutes for otp
 
-            with open("cookies.json", "w") as file:
-                json.dump(self.driver.get_cookies(), file)
+            self.refresh_cookies()
 
         if is_personal:
             self.post_articles_for_personal_account()
@@ -212,7 +228,7 @@ class PostBot:
             if not article.is_rejected:
                 # ember32_btn = self.driver.find_element(By.ID, "ember32")
                 # ember32_btn.click()
-                share_post_button = get_share_post_button()
+                share_post_button = self.get_share_post_button()
                 if not share_post_button:
                     continue
                 self.driver.execute_script("arguments[0].click();", share_post_button)
@@ -238,6 +254,7 @@ class PostBot:
             self.session.add(article)
             self.session.commit()
             time.sleep(self.post_interval)
+            self.refresh_cookies()
 
     def post_articles_for_business_account(self):
         def get_share_post_button():
@@ -272,7 +289,7 @@ class PostBot:
                 article.is_posted_business = 1
 
             if not article.is_rejected:
-                share_post_button = get_share_post_button()
+                share_post_button = self.get_share_post_button()
                 if not share_post_button:
                     logger.error("Share button is not there")
                     return
@@ -310,6 +327,7 @@ class PostBot:
             self.session.add(article)
             self.session.commit()
             time.sleep(self.post_interval)
+            self.refresh_cookies()
 
     def refresh_cookies(self):
         """
@@ -322,6 +340,22 @@ class PostBot:
         """
         with open("cookies.json", "w") as file:
             json.dump(self.driver.get_cookies(), file)
+
+    def close_pop_up(self):
+        """
+        When attempting to access an element in an automation script,
+        an unexpected pop-up may appear and interrupt the workflow.
+        In such cases, the pop-up should be closed to proceed.
+        """
+        close_buttons = self.driver.find_elements(By.TAG_NAME, 'button')
+        for button in close_buttons:
+            try:
+                if "dismiss" == button.get_attribute("aria-label").lower():
+                    self.driver.execute_script("arguments[0].click();", button)
+                    time.sleep(2)
+            except Exception:
+                logger.error("close_pop_up", traceback.format_exc())
+                continue
 
 
 def print_linkedin() -> dict:
