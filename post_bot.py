@@ -391,7 +391,7 @@ def schedule_post_bot():
     Post Interval in seconds
     """
     post_interval = 120
-    bot = PostBot(post_interval=post_interval)
+    bot = PostBot(post_interval=post_interval, is_headless=True)
     bot.login()
 
 
