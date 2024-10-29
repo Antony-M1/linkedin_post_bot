@@ -1,7 +1,25 @@
 """
-README
-This the Post Bot script
-"""
+# PostBot
+
+This script contains the main class, `PostBot`,
+which can be used to automate personal and business blog posts.
+
+## Usage
+
+To run the script, use the following command:
+
+```bash
+python post_bot.py --for_cookies
+```
+
+- When run with the `--for_cookies` argument, the script will just used to lodin and get the cookies.
+- When run without `--for_cookies`, the script will start in scheduler mode, running at regular intervals.
+To stop the scheduler, press `Ctrl + C` in the terminal.
+
+Note:
+- Don't set the scheduler interval very low because before finish one scheduler it will be
+  Trigger the another scheduler. that's the reason for the double page showing.
+""" # noqa
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -13,6 +31,7 @@ from selenium.common import exceptions as sc_ex
 from apscheduler.schedulers.background import BackgroundScheduler
 from selenium.webdriver.chrome.options import Options
 import pyfiglet
+import argparse
 import time
 import os
 import random
@@ -29,6 +48,10 @@ load_dotenv()
 
 logger = get_logger("post_bot", "post_bot.log")
 logger_schedule = get_logger("apscheduler", "schedule.log")
+
+parser = argparse.ArgumentParser(description="Post bot Arguments")
+parser.add_argument("--for_cookies", help="Run for cookies", action="store_true")
+args = parser.parse_args()
 
 
 class PostBot:
@@ -51,7 +74,7 @@ class PostBot:
         
         # Driver
         options = Options()
-        if is_headless:
+        if is_headless and os.path.exists("cookies.json"):
             options.add_argument("--headless")
         self.driver_exe_path = os.path.join(os.getcwd(), os.getenv('DRIVER_EXE_PATH', 'chromedriver'))
         self.service = Service(executable_path=self.driver_exe_path)
@@ -143,11 +166,12 @@ class PostBot:
 
             self.refresh_cookies()
 
-        if is_personal:
-            self.post_articles_for_personal_account()
+        if not args.for_cookies:
+            if is_personal:
+                self.post_articles_for_personal_account()
 
-        if is_business:
-            self.post_articles_for_business_account()
+            if is_business:
+                self.post_articles_for_business_account()
 
     def get_llm_response(self, content: str):
         try:
@@ -411,5 +435,16 @@ def start_script():
         scheduler.shutdown()
 
 
+def get_cookies():
+    """
+    This function is only used to run the login page and get the cookies after 2FA
+    """
+    bot = PostBot()
+    bot.login()
+
+
 if __name__ == '__main__':
-    start_script()
+    if not args.for_cookies:
+        start_script()
+    else:
+        get_cookies()
