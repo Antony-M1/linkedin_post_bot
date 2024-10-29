@@ -57,3 +57,13 @@ pip install --no-cache-dir -r requirements.txt
 ```
 streamlit run main.py
 ```
+
+# Run standalone
+To run the `PostBot` alone just run the following command
+```
+python post_bot.py
+```
+make sure the `cookies.json` file exists. if not run this command
+```
+python post_bot.py --for_cookies
+```
