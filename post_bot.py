@@ -71,7 +71,7 @@ class PostBot:
         self.business_url = "https://www.linkedin.com/company/{0}/admin/page-posts/published/".format(company_id)
         self.linkedin_feed_url = "https://www.linkedin.com/feed/"
         self.post_interval = post_interval
-        
+
         # Driver
         options = Options()
         if is_headless and os.path.exists("cookies.json"):
@@ -109,6 +109,7 @@ class PostBot:
             for button in buttons_list:
                 if button.text in ["Start a post, try writing with AI", "Start a post"]:
                     is_btn_found = True
+                    self.driver.execute_script("arguments[0].click();", button)
                     return button
             if not is_btn_found:
                 raise sc_ex.TimeoutException("Start a post, try writing with AI -- Button is missing")
@@ -250,12 +251,10 @@ class PostBot:
                 article.is_posted_personal = 1
 
             if not article.is_rejected:
-                # ember32_btn = self.driver.find_element(By.ID, "ember32")
-                # ember32_btn.click()
                 share_post_button = self.get_share_post_button()
                 if not share_post_button:
                     continue
-                self.driver.execute_script("arguments[0].click();", share_post_button)
+                # self.driver.execute_script("arguments[0].click();", share_post_button)
                 blog_content = f"""{article.title}\n{article.content}""".split("\n")
                 time.sleep(round(random.uniform(2, 3.0), 1))
                 try:
@@ -316,8 +315,8 @@ class PostBot:
                 share_post_button = self.get_share_post_button()
                 if not share_post_button:
                     logger.error("Share button is not there")
-                    return
-                self.driver.execute_script("arguments[0].click();", share_post_button)
+                    continue
+                # self.driver.execute_script("arguments[0].click();", share_post_button)
                 blog_content = f"""{article.title}\n{article.content}""".split("\n")
                 time.sleep(round(random.uniform(2, 3.0), 1))
                 try:
@@ -378,7 +377,7 @@ class PostBot:
                     self.driver.execute_script("arguments[0].click();", button)
                     time.sleep(2)
             except Exception:
-                logger.error("close_pop_up", traceback.format_exc())
+                logger.error("close_pop_up ", traceback.format_exc())
                 continue
 
 
@@ -391,7 +390,7 @@ def schedule_post_bot():
     """
     Post Interval in seconds
     """
-    post_interval = 300
+    post_interval = 120
     bot = PostBot(post_interval=post_interval)
     bot.login()
 
@@ -424,14 +423,14 @@ def start_script():
         print("Scheduler started...🚀🚀🚀")
         schedule_post_bot()
     except Exception:
-        logger_schedule.critical("start_script" + traceback.format_exc())
+        logger_schedule.critical("start_script " + traceback.format_exc())
 
     try:
         while True:
             time.sleep(1)
     except (KeyboardInterrupt, SystemExit):
         print("Script Stopped 🚫 · ⛔ · ✋🏻🛑⛔️ · ⛔ · ⚠️ · 🛑 · ✋")
-        logger_schedule.error("stop_script" + traceback.format_exc())
+        logger_schedule.error("stop_script " + traceback.format_exc())
         scheduler.shutdown()
 
 
